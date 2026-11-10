@@ -1,0 +1,22 @@
+---
+
+- name: Verify pgAdmin responds locally
+  ansible.builtin.uri:
+    url: http://127.0.0.1/pgadmin4/login
+    status_code: 200
+  register: pgadmin_http_check
+  until: pgadmin_http_check.status | default(0) == 200
+  retries: 6
+  delay: 5
+  when: not ansible_check_mode
+
+- name: Record successful web setup
+  ansible.builtin.copy:
+    content: "Configured by install_pgadmin.yml\n"
+    dest: /var/lib/pgadmin/.ansible-web-configured
+    owner: root
+    group: root
+    mode: '0600'
+  when:
+    - not ansible_check_mode
+    - not pgadmin_web_setup.stat.exists

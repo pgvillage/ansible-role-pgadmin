@@ -1,0 +1,23 @@
+---
+
+- name: Validate initial pgAdmin administrator credentials
+  ansible.builtin.assert:
+    that:
+      - pgadmin_admin_email is match('^[^@\s]+@[^@\s]+\.[^@\s]+$')
+      - pgadmin_admin_password | default('') | length >= 8
+    fail_msg: Set pgadmin_admin_email and a Vault-backed pgadmin_admin_password (at least 8 characters).
+  no_log: true
+
+- name: Check supported pgAdmin platform
+  ansible.builtin.assert:
+    that:
+      - ansible_distribution in ['RedHat', 'Rocky', 'AlmaLinux']
+      - ansible_distribution_major_version in ['9', '10']
+      - ansible_architecture == 'x86_64'
+    fail_msg: pgAdmin requires RHEL, Rocky Linux or AlmaLinux 9/10 on x86_64.
+
+- name: Enable and start Apache
+  ansible.builtin.service:
+    name: httpd
+    state: started
+    enabled: true
