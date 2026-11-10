@@ -1,5 +1,5 @@
 ---
-pg_admin_package_names:
+pgadmin_package_names:
  - pgadmin4-web
  - policycoreutils-python-utils
 
