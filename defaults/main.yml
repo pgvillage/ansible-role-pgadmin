@@ -1,0 +1,8 @@
+---
+
+pgadmin_admin_email: pgadminuser@pgvillage.org
+
+# Define pgadmin_admin_password in Ansible Vault.
+pgadmin_enable_firewall: "{{ enable_firewall | default(true) }}"
+
+pgadmin_admin_password: ""

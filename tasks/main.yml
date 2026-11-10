@@ -1,0 +1,87 @@
+---
+- name: Check supported pgAdmin platform
+  ansible.builtin.assert:
+    that:
+      - ansible_distribution in ['RedHat', 'Rocky', 'AlmaLinux']
+      - ansible_distribution_major_version in ['9', '10']
+      - ansible_architecture == 'x86_64'
+    fail_msg: pgAdmin requires RHEL, Rocky Linux or AlmaLinux 9/10 on x86_64.
+
+- name: Validate initial pgAdmin administrator credentials
+  ansible.builtin.assert:
+    that:
+      - pgadmin_admin_email is match('^[^@\s]+@[^@\s]+\.[^@\s]+$')
+      - pgadmin_admin_password | default('') | length >= 8
+    fail_msg: Set pgadmin_admin_email and a Vault-backed pgadmin_admin_password (at least 8 characters).
+  no_log: true
+
+- name: Install pgAdmin web and SELinux configuration tools
+  ansible.builtin.dnf:
+    name: "{{ pgadmin_package_names }}"
+    state: present
+
+# A separate marker is written only after setup and the HTTP check succeed.
+# Checking only pgadmin4.db would skip recovery after a partial setup failure.
+- name: Check whether web setup has completed
+  ansible.builtin.stat:
+    path: /var/lib/pgadmin/.ansible-web-configured
+  register: pgadmin_web_setup
+
+- name: Configure pgAdmin web and the initial administrator
+  ansible.builtin.command:
+    argv:
+      - /usr/pgadmin4/bin/setup-web.sh
+      - --yes
+  environment:
+    PGADMIN_SETUP_EMAIL: "{{ pgadmin_admin_email }}"
+    PGADMIN_SETUP_PASSWORD: "{{ pgadmin_admin_password }}"
+  when: not pgadmin_web_setup.stat.exists
+  no_log: true
+
+- name: Enable and start Apache
+  ansible.builtin.service:
+    name: httpd
+    state: started
+    enabled: true
+
+- name: Verify pgAdmin responds locally
+  ansible.builtin.uri:
+    url: http://127.0.0.1/pgadmin4/login
+    status_code: 200
+  register: pgadmin_http_check
+  until: pgadmin_http_check.status | default(0) == 200
+  retries: 6
+  delay: 5
+  when: not ansible_check_mode
+
+- name: Record successful web setup
+  ansible.builtin.copy:
+    content: "Configured by install_pgadmin.yml\n"
+    dest: /var/lib/pgadmin/.ansible-web-configured
+    owner: root
+    group: root
+    mode: '0600'
+  when:
+    - not ansible_check_mode
+    - not pgadmin_web_setup.stat.exists
+
+- name: Configure the pgAdmin firewall
+  when: pgadmin_enable_firewall | bool
+  block:
+    - name: Install firewalld
+      ansible.builtin.dnf:
+        name: firewalld
+        state: present
+
+    - name: Enable and start firewalld
+      ansible.builtin.service:
+        name: firewalld
+        state: started
+        enabled: true
+
+    - name: Allow HTTP access to pgAdmin
+      ansible.posix.firewalld:
+        service: http
+        permanent: true
+        immediate: true
+        state: enabled
