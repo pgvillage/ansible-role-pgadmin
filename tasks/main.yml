@@ -17,7 +17,7 @@
 
 - name: Install pgAdmin web and SELinux configuration tools
   ansible.builtin.dnf:
-    name: "{{ pgadmin_package_names }}"
+    name: "{{ pg_admin_package_names }}"
     state: present
 
 # A separate marker is written only after setup and the HTTP check succeed.
