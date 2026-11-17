@@ -5,9 +5,9 @@ management VM. It does not require PostgreSQL to be installed on the same host.
 
 | Target | Installation | Application hosting | Runtime account |
 | --- | --- | --- | --- |
-| RHEL 9/10 and compatible distributions | `pgadmin4-web` RPM | Apache / mod_wsgi | `apache:apache` |
-| Ubuntu | `pgadmin4-web` DEB | Apache / mod_wsgi | `www-data:www-data` |
-| openSUSE | `pgadmin4` in a virtual environment | Gunicorn behind Apache | `wwwrun:www` |
+| RHEL 9, 10 | `pgadmin4-web` RPM | Apache / mod_wsgi | `apache:apache` |
+| Ubuntu 24.04, 26.04 | `pgadmin4-web` DEB | Apache / mod_wsgi | `www-data:www-data` |
+| openSUSE Leap 16 | `pgadmin4` in a virtual environment | Gunicorn behind Apache | `wwwrun:www` |
 
 No additional Linux user is created. Apache retains its distribution service
 configuration. Gunicorn runs as the existing web service account, with one
@@ -24,9 +24,9 @@ server is never used.
   This role installs application packages but does not configure repositories.
 - Repository installations use upstream x86_64 packages. Custom repositories can
   override `pgadmin_package_architectures` and `pgadmin_package_names`.
-- On openSUSE, Linux must provide Python 3.10 or newer with `venv` and `ensurepip`.
-  For example, provision `python313`/`python313-pip` on Leap 16, or a suitable
-  newer Python on older Leap versions. Set `pgadmin_python_executable` to that
+- On openSUSE Leap 16, Linux must provide Python 3.10 or newer with `venv` and
+  `ensurepip`. For example, provision `python313`/`python313-pip`.
+  Set `pgadmin_python_executable` to that
   interpreter if `/usr/bin/python3` is older. Dependencies must be available from
   the configured Python package index, including wheels for the target platform
   or the corresponding build dependencies. Python 3.13 is the local validation
@@ -66,7 +66,7 @@ is a pgAdmin web login, separate from PostgreSQL users and Linux accounts.
 
 | Variable | Default / purpose |
 | --- | --- |
-| `pgadmin_install_method` | `pip` on Suse, `package` otherwise |
+| `pgadmin_install_method` | `pip` on openSUSE Leap 16, `package` on RHEL and Ubuntu |
 | `pgadmin_package_names` | Platform application packages, Apache and ACL tools; includes `mod_ssl` on RHEL with HTTPS |
 | `pgadmin_package_state` | `present`; optionally `latest` for repository packages |
 | `pgadmin_admin_email`, `pgadmin_admin_password` | Required only for initial database creation; password must meet `PASSWORD_LENGTH_MIN`, with a minimum of eight characters |

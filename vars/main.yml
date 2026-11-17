@@ -1,5 +1,7 @@
 ---
-_pgadmin_platform: "{{ _pgadmin_platforms.get(ansible_facts.os_family, {}) }}"
+_pgadmin_platform: >-
+  {{ _pgadmin_platforms.get(ansible_facts.distribution,
+       _pgadmin_platforms.get(ansible_facts.os_family, {})) }}
 _pgadmin_platforms:
   RedHat:
     packages: [pgadmin4-web, httpd, acl]
@@ -8,7 +10,7 @@ _pgadmin_platforms:
     service: httpd
     config_file: /etc/httpd/conf.d/pgadmin4.conf
     control: /usr/sbin/apachectl
-  Debian:
+  Ubuntu:
     packages: [pgadmin4-web, apache2, acl]
     user: www-data
     group: www-data

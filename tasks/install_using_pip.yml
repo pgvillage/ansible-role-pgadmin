@@ -14,8 +14,7 @@
     that: (pgadmin_python_check.stdout | from_json)[:2] >= [3, 10]
     fail_msg: >-
       Configure Python 3.10 or newer with venv/ensurepip support in the Linux role,
-      and point pgadmin_python_executable at it. The default Python on older
-      openSUSE releases may be too old.
+      and point pgadmin_python_executable at it on openSUSE Leap 16.
     quiet: true
 
 - name: Install the Apache frontend

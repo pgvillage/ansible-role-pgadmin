@@ -1,5 +1,5 @@
 ---
-- name: Enable Apache modules on Debian
+- name: Enable Apache modules on Ubuntu
   community.general.apache2_module:
     name: "{{ item }}"
     state: present
@@ -7,7 +7,7 @@
     {{ ['headers']
        + (['wsgi'] if pgadmin_install_method == 'package' else ['proxy', 'proxy_http'])
        + (['ssl'] if pgadmin_tls_enabled | bool else []) }}
-  when: ansible_facts.os_family == 'Debian'
+  when: ansible_facts.distribution == 'Ubuntu'
   notify: Restart pgAdmin web server
 
 - name: Find the RHEL Apache TLS initialization helper
@@ -69,12 +69,12 @@
     mode: '0644'
   notify: Restart pgAdmin web server
 
-- name: Enable the pgAdmin Apache configuration on Debian
+- name: Enable the pgAdmin Apache configuration on Ubuntu
   ansible.builtin.file:
     src: "{{ pgadmin_apache_config_file }}"
     dest: /etc/apache2/conf-enabled/pgadmin4.conf
     state: link
     owner: root
     group: root
-  when: ansible_facts.os_family == 'Debian'
+  when: ansible_facts.distribution == 'Ubuntu'
   notify: Restart pgAdmin web server
