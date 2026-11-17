@@ -51,19 +51,6 @@
   when: not ansible_check_mode
   notify: Restart pgAdmin application
 
-- name: Make the root-owned virtual environment readable by the web service
-  ansible.builtin.file:
-    path: "{{ pgadmin_virtualenv }}"
-    state: directory
-    owner: root
-    group: root
-    mode: 'u=rwX,go=rX'
-    recurse: true
-    follow: false
-  when:
-    - not ansible_check_mode
-    - pgadmin_install_result is changed
-
 - name: Locate the installed pgAdmin application
   ansible.builtin.command:
     argv:
@@ -76,3 +63,20 @@
   changed_when: false
   check_mode: false
   when: not ansible_check_mode
+
+- name: Install the pgAdmin browser assets
+  ansible.builtin.import_tasks: pip_frontend.yml
+  when: not ansible_check_mode
+
+- name: Make the root-owned virtual environment readable by the web service
+  ansible.builtin.file:
+    path: "{{ pgadmin_virtualenv }}"
+    state: directory
+    owner: root
+    group: root
+    mode: 'u=rwX,go=rX'
+    recurse: true
+    follow: false
+  when:
+    - not ansible_check_mode
+    - pgadmin_install_result is changed or (pgadmin_frontend_repair_result | default({})) is changed

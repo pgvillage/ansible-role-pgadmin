@@ -132,6 +132,16 @@ to other kinds of endpoints may require additional policy; SELinux is not disabl
 
 ## Initialization and maintenance
 
+The pip installation phase checks for the production frontend bundles before
+configuration or database initialization. If the 9.19 wheel is incomplete, the
+role downloads checksum-pinned official 9.19 wheel/RPM artifacts, extracts only
+the RPM's frontend bundles, and builds and installs a complete wheel. It checks
+that the donor's version file and base HTML template match the Python wheel.
+Python code, dependencies and application version remain unchanged; the repaired
+wheel records the added files so pip can remove them during future upgrades.
+Temporary packages are removed afterwards. Complete installations skip this
+repair, and unknown incomplete versions fail rather than mixing releases.
+
 Initial credentials are passed through the environment under `no_log`, never
 written into a service unit or application configuration file. Changing them
 after bootstrap does not reset the existing account. Subsequent runs can omit
@@ -143,9 +153,11 @@ from a missing one. Nonempty corrupt/incomplete databases fail with a recovery
 message instead of being deleted. Back up the data directory before application
 upgrades; pgAdmin schema migrations are not a supported downgrade mechanism.
 
-The success marker is written only after the login page and database checks pass.
-It does not replace the database inspection, so a stale marker cannot conceal a
-missing database. Configuration changes and package upgrades restart the relevant
+The success marker is written only after the login page, its referenced
+JavaScript/stylesheets, and database checks pass. A login page returning HTTP 200
+alone does not prove the UI can load: missing frontend bundles leave it showing
+only a spinner. The marker does not replace the database inspection, so a stale
+marker cannot conceal a missing database. Configuration changes and package upgrades restart the relevant
 services after Apache syntax validation. Services are enabled across reboots.
 
 The default health check accesses the loopback HTTPS endpoint using the virtual
@@ -166,7 +178,7 @@ configure pgAdmin's binary paths as appropriate.
 
 ## Local validation
 
-Run the SQLite bootstrap regression checks with:
+Run the database bootstrap and frontend wheel repair regression checks with:
 
 ```console
 python3 -m unittest discover -s tests -v

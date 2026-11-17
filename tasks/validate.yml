@@ -15,6 +15,34 @@
   retries: "{{ pgadmin_healthcheck_retries }}"
   delay: "{{ pgadmin_healthcheck_delay }}"
 
+- name: Verify the login page's browser assets
+  vars:
+    _pgadmin_login_assets: >-
+      {{ pgadmin_http_check.content
+         | regex_findall('(?:src|href)="(' ~ pgadmin_url_path ~ '/static/[^"]+\.(?:js|css)(?:\?[^"]*)?)"')
+         | unique | list }}
+  block:
+    - name: Check that the login page references JavaScript and stylesheets
+      ansible.builtin.assert:
+        that: _pgadmin_login_assets | length > 0
+        fail_msg: The pgAdmin login page did not reference any browser assets.
+        quiet: true
+
+    - name: Verify JavaScript and stylesheets respond through Apache
+      ansible.builtin.uri:
+        url: >-
+          {{ pgadmin_healthcheck_url | urlsplit('scheme') }}://{{ pgadmin_healthcheck_url | urlsplit('netloc') }}{{ item }}
+        headers:
+          Host: "{{ pgadmin_server_name }}"
+        status_code: 200
+        validate_certs: "{{ pgadmin_healthcheck_validate_certs }}"
+        use_proxy: false
+      loop: "{{ _pgadmin_login_assets }}"
+      register: pgadmin_asset_check
+      failed_when: >-
+        pgadmin_asset_check.status | default(0) != 200
+        or not (pgadmin_asset_check.content_type | default('') is search('(?i)(javascript|text/css)'))
+
 - name: Verify the configuration database was initialized
   ansible.builtin.command:
     argv:

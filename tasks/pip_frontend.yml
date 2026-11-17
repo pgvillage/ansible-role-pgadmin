@@ -1,0 +1,16 @@
+---
+- name: Inspect the installed pgAdmin frontend bundles
+  ansible.builtin.stat:
+    path: "{{ _pgadmin_application_dir }}/pgadmin/static/js/generated/{{ item }}"
+    get_checksum: false
+    get_mime: false
+  loop: "{{ _pgadmin_required_frontend_assets }}"
+  register: pgadmin_frontend_assets
+
+- name: Repair an incomplete pgAdmin Python wheel
+  ansible.builtin.include_tasks: repair_pip_frontend.yml
+  when: >-
+    pgadmin_frontend_assets.results
+    | selectattr('stat.isreg', 'defined') | selectattr('stat.isreg')
+    | selectattr('stat.size', 'gt', 0) | list | length
+    != _pgadmin_required_frontend_assets | length
