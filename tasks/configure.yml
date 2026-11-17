@@ -44,9 +44,7 @@
 
 - name: Configure SELinux for pgAdmin
   ansible.builtin.include_tasks: selinux.yml
-  when:
-    - ansible_facts.os_family == 'RedHat'
-    - pgadmin_selinux_mount.stat.exists
+  when: pgadmin_selinux_mount.stat.exists
 
 - name: Initialize or upgrade the pgAdmin configuration database
   become: true

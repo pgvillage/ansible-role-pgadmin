@@ -5,6 +5,7 @@ _pgadmin_platform: >-
 _pgadmin_platforms:
   RedHat:
     packages: [pgadmin4-web, httpd, acl]
+    selinux_packages: [policycoreutils-python-utils, python3-libselinux, python3-libsemanage]
     user: apache
     group: apache
     service: httpd
@@ -12,6 +13,7 @@ _pgadmin_platforms:
     control: /usr/sbin/apachectl
   Ubuntu:
     packages: [pgadmin4-web, apache2, acl]
+    selinux_packages: [policycoreutils-python-utils, python3-selinux, python3-semanage]
     user: www-data
     group: www-data
     service: apache2
@@ -19,6 +21,7 @@ _pgadmin_platforms:
     control: /usr/sbin/apache2ctl
   Suse:
     packages: [apache2, acl]
+    selinux_packages: [policycoreutils-python-utils, python3-selinux, python3-semanage]
     user: wwwrun
     group: www
     service: apache2

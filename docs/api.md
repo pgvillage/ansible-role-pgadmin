@@ -120,10 +120,14 @@ secure cookies are enabled. For a private HTTP-only smoke test, also set
 `pgadmin_secure_cookies: false`; otherwise browsers cannot retain the login cookie
 over HTTP. Do not expose that test configuration as the customer endpoint.
 
-On SELinux-enabled RHEL hosts, the role installs management dependencies, applies
-file contexts to its configuration/data/log directories, and enables
-`httpd_can_network_connect_db`. Nonstandard PostgreSQL/router ports must also be
-labeled appropriately in the host's SELinux policy. SSH tunnels or connections
+On SELinux-enabled hosts, including RHEL and openSUSE Leap 16, the role installs
+the platform's management dependencies, applies file contexts to its
+configuration/data/log directories, and enables `httpd_can_network_connect_db`.
+For pip installations it also labels the configured Gunicorn TCP port
+`http_port_t` and enables `httpd_can_network_relay`, so Apache can proxy to the
+loopback backend. This replaces any existing SELinux type assignment for that
+TCP port; reserve it for pgAdmin. Nonstandard PostgreSQL/router ports must also
+be labeled appropriately in the host's SELinux policy. SSH tunnels or connections
 to other kinds of endpoints may require additional policy; SELinux is not disabled.
 
 ## Initialization and maintenance

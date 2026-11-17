@@ -50,10 +50,7 @@ pgadmin_gunicorn_port: 5050
 pgadmin_gunicorn_threads: 25
 pgadmin_gunicorn_timeout: 300
 
-pgadmin_selinux_packages:
-  - policycoreutils-python-utils
-  - python3-libselinux
-  - python3-libsemanage
+pgadmin_selinux_packages: "{{ _pgadmin_platform.selinux_packages }}"
 
 # Loopback checks use the configured Host header. Set a DNS URL and enable
 # certificate validation to additionally verify the certificate's hostname.

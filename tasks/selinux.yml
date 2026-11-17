@@ -10,6 +10,21 @@
     state: true
     persistent: true
 
+- name: Label the Gunicorn backend port for Apache proxy connections
+  community.general.seport:
+    ports: "{{ pgadmin_gunicorn_port }}"
+    proto: tcp
+    setype: http_port_t
+    state: present
+  when: pgadmin_install_method == 'pip'
+
+- name: Allow Apache to proxy requests to the Gunicorn HTTP backend
+  ansible.posix.seboolean:
+    name: httpd_can_network_relay
+    state: true
+    persistent: true
+  when: pgadmin_install_method == 'pip'
+
 - name: Label the pgAdmin runtime directories
   community.general.sefcontext:
     target: "{{ item.path | regex_escape }}(/.*)?"
