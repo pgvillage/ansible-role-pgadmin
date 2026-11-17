@@ -1,8 +1,64 @@
 ---
+# Repositories, signing keys and firewall rules are managed outside this role.
+pgadmin_install_method: "{{ 'pip' if ansible_facts.os_family == 'Suse' else 'package' }}"
+pgadmin_package_state: present
+pgadmin_package_architectures:
+  - x86_64
+pgadmin_package_names: >-
+  {{ _pgadmin_platform.packages
+     + (['mod_ssl'] if ansible_facts.os_family == 'RedHat' and pgadmin_tls_enabled | bool else []) }}
 
-pgadmin_admin_email: pgadminuser@pgvillage.org
+# Bootstrap credentials only; subsequent runs never reset an existing account.
+pgadmin_admin_email: ''
+pgadmin_admin_password: ''
 
-# Define pgadmin_admin_password in Ansible Vault.
-pgadmin_enable_firewall: "{{ enable_firewall | default(true) }}"
+pgadmin_data_dir: /var/lib/pgadmin
+pgadmin_log_dir: /var/log/pgadmin
+# pgAdmin's Linux system configuration location is fixed upstream.
+pgadmin_config_dir: /etc/pgadmin
+pgadmin_config: {}
 
-pgadmin_admin_password: ""
+# Use the distribution web service account; no additional OS user is created.
+pgadmin_webserver_user: "{{ _pgadmin_platform.user }}"
+pgadmin_webserver_group: "{{ _pgadmin_platform.group }}"
+pgadmin_webserver_service: "{{ _pgadmin_platform.service }}"
+pgadmin_apache_config_file: "{{ _pgadmin_platform.config_file }}"
+pgadmin_apache_control: "{{ _pgadmin_platform.control }}"
+pgadmin_server_name: "{{ ansible_facts.fqdn }}"
+pgadmin_url_path: /pgadmin4
+
+# Certificates are provisioned by the certificate role/operator.
+# Disable only behind an existing TLS reverse proxy or private tunnel.
+pgadmin_tls_enabled: true
+pgadmin_tls_certificate_file: ''
+pgadmin_tls_key_file: ''
+pgadmin_webserver_address: '*'
+pgadmin_webserver_port: "{{ 443 if pgadmin_tls_enabled | bool else 80 }}"
+pgadmin_secure_cookies: true
+
+# Repository package layout; the pip application directory is discovered.
+pgadmin_package_python: /usr/pgadmin4/venv/bin/python3
+pgadmin_package_application_dir: /usr/pgadmin4/web
+pgadmin_package_virtualenv: /usr/pgadmin4/venv
+
+# Linux must provide a suitable Python with venv/ensurepip on openSUSE.
+pgadmin_python_executable: /usr/bin/python3
+pgadmin_virtualenv: /opt/pgadmin/venv
+pgadmin_pip_version: '9.19'
+pgadmin_gunicorn_requirement: 'gunicorn>=25,<26'
+pgadmin_gunicorn_port: 5050
+pgadmin_gunicorn_threads: 25
+pgadmin_gunicorn_timeout: 300
+
+pgadmin_selinux_packages:
+  - policycoreutils-python-utils
+  - python3-libselinux
+  - python3-libsemanage
+
+# Loopback checks use the configured Host header. Set a DNS URL and enable
+# certificate validation to additionally verify the certificate's hostname.
+pgadmin_healthcheck_url: >-
+  {{ 'https' if pgadmin_tls_enabled | bool else 'http' }}://127.0.0.1:{{ pgadmin_webserver_port }}{{ pgadmin_url_path }}/login
+pgadmin_healthcheck_validate_certs: false
+pgadmin_healthcheck_retries: 12
+pgadmin_healthcheck_delay: 5

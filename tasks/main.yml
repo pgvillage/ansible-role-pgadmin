@@ -1,9 +1,23 @@
 ---
+- name: Check prerequisites
+  ansible.builtin.import_tasks: prereqs.yml
 
-#prereqs
+- name: Install pgAdmin from configured repositories
+  ansible.builtin.include_tasks: install_using_package_manager.yml
+  when: pgadmin_install_method == 'package'
 
-#install
-#configure
-#start
-#validate
+- name: Install pgAdmin in a Python virtual environment
+  ansible.builtin.include_tasks: install_using_pip.yml
+  when: pgadmin_install_method == 'pip'
 
+- name: Configure pgAdmin
+  ansible.builtin.import_tasks: configure.yml
+  when: not ansible_check_mode
+
+- name: Start pgAdmin
+  ansible.builtin.import_tasks: start.yml
+  when: not ansible_check_mode
+
+- name: Validate pgAdmin
+  ansible.builtin.import_tasks: validate.yml
+  when: not ansible_check_mode

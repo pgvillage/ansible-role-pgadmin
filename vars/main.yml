@@ -1,5 +1,52 @@
 ---
-pgadmin_package_names:
- - pgadmin4-web
- - policycoreutils-python-utils
+_pgadmin_platform: "{{ _pgadmin_platforms.get(ansible_facts.os_family, {}) }}"
+_pgadmin_platforms:
+  RedHat:
+    packages: [pgadmin4-web, httpd, acl]
+    user: apache
+    group: apache
+    service: httpd
+    config_file: /etc/httpd/conf.d/pgadmin4.conf
+    control: /usr/sbin/apachectl
+  Debian:
+    packages: [pgadmin4-web, apache2, acl]
+    user: www-data
+    group: www-data
+    service: apache2
+    config_file: /etc/apache2/conf-available/pgadmin4.conf
+    control: /usr/sbin/apache2ctl
+  Suse:
+    packages: [apache2, acl]
+    user: wwwrun
+    group: www
+    service: apache2
+    config_file: /etc/apache2/vhosts.d/pgadmin4.conf
+    control: /usr/sbin/start_apache2
 
+_pgadmin_python: >-
+  {{ pgadmin_virtualenv ~ '/bin/python' if pgadmin_install_method == 'pip'
+     else pgadmin_package_python }}
+_pgadmin_application_dir: >-
+  {{ pgadmin_pip_application.stdout if pgadmin_install_method == 'pip'
+     else pgadmin_package_application_dir }}
+_pgadmin_apache_configtest: >-
+  {{ [pgadmin_apache_control, '-t']
+     + (['-D', 'SSL'] if ansible_facts.os_family == 'Suse' and pgadmin_tls_enabled | bool else []) }}
+_pgadmin_managed_settings:
+  - SERVER_MODE
+  - DATA_DIR
+  - LOG_FILE
+  - SQLITE_PATH
+  - SESSION_DB_PATH
+  - STORAGE_DIR
+  - KERBEROS_CCACHE_DIR
+  - AZURE_CREDENTIAL_CACHE_DIR
+  - APPLICATION_ROOT
+  - SESSION_COOKIE_PATH
+  - SESSION_COOKIE_SECURE
+  - REMEMBER_COOKIE_SECURE
+  - PROXY_X_FOR_COUNT
+  - PROXY_X_PROTO_COUNT
+  - PROXY_X_HOST_COUNT
+  - PROXY_X_PORT_COUNT
+  - PROXY_X_PREFIX_COUNT

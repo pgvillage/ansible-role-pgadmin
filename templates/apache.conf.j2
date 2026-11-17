@@ -1,0 +1,49 @@
+# {{ ansible_managed }}
+{% if pgadmin_install_method == 'package' and ansible_facts.os_family == 'RedHat' %}
+# The upstream RPM loads mod_wsgi in this file rather than conf.modules.d.
+<IfModule !wsgi_module>
+    LoadModule wsgi_module modules/mod_wsgi.so
+</IfModule>
+{% endif %}
+
+<VirtualHost {{ pgadmin_webserver_address }}:{{ pgadmin_webserver_port }}>
+    ServerName {{ pgadmin_server_name }}
+{% if pgadmin_tls_enabled | bool %}
+    SSLEngine on
+    SSLProtocol -all +TLSv1.2 +TLSv1.3
+    SSLCertificateFile "{{ pgadmin_tls_certificate_file }}"
+    SSLCertificateKeyFile "{{ pgadmin_tls_key_file }}"
+    # Renewing the certificate also notifies the Apache restart handler.
+    # Certificate checksum: {{ pgadmin_tls_files.results[0].stat.checksum }}
+{% endif %}
+
+    # pgAdmin also understands these headers independently of ProxyFix.
+    RequestHeader unset X-Script-Name
+    RequestHeader unset X-Scheme
+    RequestHeader unset X-Forwarded-For
+    RequestHeader unset X-Forwarded-Proto
+    RequestHeader unset X-Forwarded-Host
+    RequestHeader unset X-Forwarded-Port
+    RequestHeader unset X-Forwarded-Prefix
+    RequestHeader set X-Forwarded-Proto "{{ 'https' if pgadmin_tls_enabled | bool or pgadmin_secure_cookies | bool else 'http' }}"
+{% if pgadmin_install_method == 'pip' %}
+
+    ProxyRequests Off
+    ProxyPreserveHost On
+    <Location "{{ pgadmin_url_path }}">
+        RequestHeader set X-Script-Name "{{ pgadmin_url_path }}"
+        ProxyPass "http://127.0.0.1:{{ pgadmin_gunicorn_port }}{{ pgadmin_url_path }}" connectiontimeout=5 timeout={{ pgadmin_gunicorn_timeout }}
+        ProxyPassReverse "http://127.0.0.1:{{ pgadmin_gunicorn_port }}{{ pgadmin_url_path }}"
+        Require all granted
+    </Location>
+{% else %}
+
+    WSGIDaemonProcess pgadmin processes=1 threads=25 python-home={{ pgadmin_package_virtualenv }} python-path={{ pgadmin_config_dir }}
+    WSGIScriptAlias {{ pgadmin_url_path }} "{{ pgadmin_package_application_dir }}/pgAdmin4.wsgi"
+    <Directory "{{ pgadmin_package_application_dir }}">
+        WSGIProcessGroup pgadmin
+        WSGIApplicationGroup %{GLOBAL}
+        Require all granted
+    </Directory>
+{% endif %}
+</VirtualHost>

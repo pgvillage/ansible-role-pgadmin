@@ -1,0 +1,79 @@
+---
+- name: Check Python and virtual environment support
+  ansible.builtin.command:
+    argv:
+      - "{{ pgadmin_python_executable }}"
+      - -c
+      - 'import ensurepip, json, sys, venv; print(json.dumps(list(sys.version_info[:3])))'
+  register: pgadmin_python_check
+  changed_when: false
+  check_mode: false
+
+- name: Validate the Python version for pgAdmin and Gunicorn
+  ansible.builtin.assert:
+    that: (pgadmin_python_check.stdout | from_json)[:2] >= [3, 10]
+    fail_msg: >-
+      Configure Python 3.10 or newer with venv/ensurepip support in the Linux role,
+      and point pgadmin_python_executable at it. The default Python on older
+      openSUSE releases may be too old.
+    quiet: true
+
+- name: Install the Apache frontend
+  ansible.builtin.package:
+    name: "{{ pgadmin_package_names }}"
+    state: "{{ pgadmin_package_state }}"
+  notify: Restart pgAdmin web server
+
+- name: Create the virtual environment parent directory
+  ansible.builtin.file:
+    path: "{{ pgadmin_virtualenv | dirname }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Create the pgAdmin virtual environment
+  ansible.builtin.command:
+    argv:
+      - "{{ pgadmin_python_executable }}"
+      - -m
+      - venv
+      - "{{ pgadmin_virtualenv }}"
+    creates: "{{ pgadmin_virtualenv }}/bin/python"
+
+- name: Install pgAdmin and Gunicorn in the virtual environment
+  ansible.builtin.pip:
+    name:
+      - "pgadmin4=={{ pgadmin_pip_version }}"
+      - "{{ pgadmin_gunicorn_requirement }}"
+    executable: "{{ pgadmin_virtualenv }}/bin/pip"
+    state: present
+  register: pgadmin_install_result
+  when: not ansible_check_mode
+  notify: Restart pgAdmin application
+
+- name: Make the root-owned virtual environment readable by the web service
+  ansible.builtin.file:
+    path: "{{ pgadmin_virtualenv }}"
+    state: directory
+    owner: root
+    group: root
+    mode: 'u=rwX,go=rX'
+    recurse: true
+    follow: false
+  when:
+    - not ansible_check_mode
+    - pgadmin_install_result is changed
+
+- name: Locate the installed pgAdmin application
+  ansible.builtin.command:
+    argv:
+      - "{{ pgadmin_virtualenv }}/bin/python"
+      - -c
+      - >-
+        from importlib.util import find_spec;
+        print(next(iter(find_spec('pgadmin4').submodule_search_locations)))
+  register: pgadmin_pip_application
+  changed_when: false
+  check_mode: false
+  when: not ansible_check_mode

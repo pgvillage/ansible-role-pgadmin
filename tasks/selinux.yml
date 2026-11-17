@@ -1,0 +1,36 @@
+---
+- name: Install SELinux management dependencies
+  ansible.builtin.package:
+    name: "{{ pgadmin_selinux_packages }}"
+    state: present
+
+- name: Allow Apache to connect to database ports
+  ansible.posix.seboolean:
+    name: httpd_can_network_connect_db
+    state: true
+    persistent: true
+
+- name: Label the pgAdmin runtime directories
+  community.general.sefcontext:
+    target: "{{ item.path | regex_escape }}(/.*)?"
+    setype: "{{ item.type }}"
+    state: present
+  loop:
+    - path: "{{ pgadmin_data_dir }}"
+      type: httpd_var_lib_t
+    - path: "{{ pgadmin_log_dir }}"
+      type: httpd_log_t
+    - path: "{{ pgadmin_config_dir }}"
+      type: httpd_config_t
+
+- name: Apply the pgAdmin SELinux labels
+  ansible.builtin.command:
+    argv:
+      - restorecon
+      - -R
+      - -v
+      - "{{ pgadmin_data_dir }}"
+      - "{{ pgadmin_log_dir }}"
+      - "{{ pgadmin_config_dir }}"
+  register: pgadmin_restorecon
+  changed_when: pgadmin_restorecon.stdout | length > 0

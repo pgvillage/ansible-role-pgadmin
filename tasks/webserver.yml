@@ -1,0 +1,80 @@
+---
+- name: Enable Apache modules on Debian
+  community.general.apache2_module:
+    name: "{{ item }}"
+    state: present
+  loop: >-
+    {{ ['headers']
+       + (['wsgi'] if pgadmin_install_method == 'package' else ['proxy', 'proxy_http'])
+       + (['ssl'] if pgadmin_tls_enabled | bool else []) }}
+  when: ansible_facts.os_family == 'Debian'
+  notify: Restart pgAdmin web server
+
+- name: Find the RHEL Apache TLS initialization helper
+  ansible.builtin.stat:
+    path: /usr/libexec/httpd-ssl-gencerts
+  register: pgadmin_rhel_tls_helper
+  when:
+    - ansible_facts.os_family == 'RedHat'
+    - pgadmin_tls_enabled | bool
+
+# RHEL normally runs this during httpd-init.service. Syntax validation precedes
+# service startup here, so the distribution's default SSL vhost must be ready.
+# This helper leaves existing certificates and customized SSL configurations alone.
+- name: Prepare the distribution default SSL virtual host before syntax validation
+  ansible.builtin.command:
+    argv: [/usr/libexec/httpd-ssl-gencerts]
+  changed_when: false
+  when:
+    - ansible_facts.os_family == 'RedHat'
+    - pgadmin_tls_enabled | bool
+    - pgadmin_rhel_tls_helper.stat.exists
+
+- name: List Apache modules configured on openSUSE
+  ansible.builtin.command:
+    argv: [/usr/sbin/a2enmod, -l]
+  register: pgadmin_suse_modules
+  changed_when: false
+  when: ansible_facts.os_family == 'Suse'
+
+- name: Enable Apache modules on openSUSE
+  ansible.builtin.command:
+    argv: [/usr/sbin/a2enmod, "{{ item }}"]
+  loop: >-
+    {{ ['headers', 'proxy', 'proxy_http']
+       + (['ssl'] if pgadmin_tls_enabled | bool else []) }}
+  when:
+    - ansible_facts.os_family == 'Suse'
+    - item not in (pgadmin_suse_modules.stdout.split() | map('regex_replace', '^mod_', '') | list)
+  changed_when: true
+  notify: Restart pgAdmin web server
+
+- name: Enable the Apache SSL startup flag on openSUSE
+  ansible.builtin.lineinfile:
+    path: /etc/sysconfig/apache2
+    regexp: '^(APACHE_SERVER_FLAGS=")(?![^"]*\bSSL\b)([^"]*)"$'
+    line: '\1\2 SSL"'
+    backrefs: true
+  when:
+    - ansible_facts.os_family == 'Suse'
+    - pgadmin_tls_enabled | bool
+  notify: Restart pgAdmin web server
+
+- name: Configure the pgAdmin virtual host
+  ansible.builtin.template:
+    src: apache.conf.j2
+    dest: "{{ pgadmin_apache_config_file }}"
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart pgAdmin web server
+
+- name: Enable the pgAdmin Apache configuration on Debian
+  ansible.builtin.file:
+    src: "{{ pgadmin_apache_config_file }}"
+    dest: /etc/apache2/conf-enabled/pgadmin4.conf
+    state: link
+    owner: root
+    group: root
+  when: ansible_facts.os_family == 'Debian'
+  notify: Restart pgAdmin web server

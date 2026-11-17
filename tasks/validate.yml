@@ -1,22 +1,37 @@
 ---
-
-- name: Verify pgAdmin responds locally
+- name: Verify pgAdmin responds through Apache
   ansible.builtin.uri:
-    url: http://127.0.0.1/pgadmin4/login
+    url: "{{ pgadmin_healthcheck_url }}"
+    headers:
+      Host: "{{ pgadmin_server_name }}"
     status_code: 200
+    return_content: true
+    validate_certs: "{{ pgadmin_healthcheck_validate_certs }}"
+    use_proxy: false
   register: pgadmin_http_check
-  until: pgadmin_http_check.status | default(0) == 200
-  retries: 6
-  delay: 5
-  when: not ansible_check_mode
+  until:
+    - pgadmin_http_check.status | default(0) == 200
+    - "'pgadmin' in (pgadmin_http_check.content | default('') | lower)"
+  retries: "{{ pgadmin_healthcheck_retries }}"
+  delay: "{{ pgadmin_healthcheck_delay }}"
+
+- name: Verify the configuration database was initialized
+  ansible.builtin.command:
+    argv:
+      - "{{ ansible_facts.python.executable }}"
+      - '-'
+      - "{{ pgadmin_data_dir }}/pgadmin4.db"
+    stdin: "{{ lookup('ansible.builtin.file', 'database_state.py') }}"
+  register: pgadmin_database_check
+  changed_when: false
+  failed_when: >-
+    pgadmin_database_check.rc != 0
+    or not (pgadmin_database_check.stdout | from_json).initialized
 
 - name: Record successful web setup
   ansible.builtin.copy:
-    content: "Configured by install_pgadmin.yml\n"
-    dest: /var/lib/pgadmin/.ansible-web-configured
+    content: "Configured by the pgvillage.pgadmin role.\n"
+    dest: "{{ pgadmin_data_dir }}/.ansible-web-configured"
     owner: root
     group: root
     mode: '0600'
-  when:
-    - not ansible_check_mode
-    - not pgadmin_web_setup.stat.exists

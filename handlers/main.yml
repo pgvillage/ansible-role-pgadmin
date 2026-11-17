@@ -1,0 +1,18 @@
+---
+- name: Restart pgAdmin application
+  ansible.builtin.systemd_service:
+    name: pgadmin.service
+    daemon_reload: true
+    state: restarted
+  when: pgadmin_install_method == 'pip'
+
+- name: Check Apache configuration before restart
+  ansible.builtin.command:
+    argv: "{{ _pgadmin_apache_configtest }}"
+  changed_when: false
+  listen: Restart pgAdmin web server
+
+- name: Restart pgAdmin web server
+  ansible.builtin.systemd_service:
+    name: "{{ pgadmin_webserver_service }}"
+    state: restarted

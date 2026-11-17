@@ -1,13 +1,7 @@
 ---
-- name: Install pgAdmin web and SELinux configuration tools
-  ansible.builtin.dnf:
+- name: Install pgAdmin web and Apache
+  ansible.builtin.package:
     name: "{{ pgadmin_package_names }}"
-    state: present
-
-
-# A separate marker is written only after setup and the HTTP check succeed.
-# Checking only pgadmin4.db would skip recovery after a partial setup failure.
-- name: Check whether web setup has completed
-  ansible.builtin.stat:
-    path: /var/lib/pgadmin/.ansible-web-configured
-  register: pgadmin_web_setup
+    state: "{{ pgadmin_package_state }}"
+  register: pgadmin_install_result
+  notify: Restart pgAdmin web server

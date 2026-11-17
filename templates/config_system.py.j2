@@ -1,0 +1,27 @@
+# {{ ansible_managed }}
+import json
+
+SERVER_MODE = True
+DATA_DIR = {{ pgadmin_data_dir | to_json }}
+SQLITE_PATH = {{ (pgadmin_data_dir ~ '/pgadmin4.db') | to_json }}
+LOG_FILE = {{ (pgadmin_log_dir ~ '/pgadmin4.log') | to_json }}
+SESSION_DB_PATH = {{ (pgadmin_data_dir ~ '/sessions') | to_json }}
+STORAGE_DIR = {{ (pgadmin_data_dir ~ '/storage') | to_json }}
+KERBEROS_CCACHE_DIR = {{ (pgadmin_data_dir ~ '/kerberoscache') | to_json }}
+AZURE_CREDENTIAL_CACHE_DIR = {{ (pgadmin_data_dir ~ '/azurecredentialcache') | to_json }}
+APPLICATION_ROOT = {{ pgadmin_url_path | to_json }}
+SESSION_COOKIE_PATH = {{ pgadmin_url_path | to_json }}
+SESSION_COOKIE_SECURE = {{ pgadmin_secure_cookies | bool }}
+REMEMBER_COOKIE_SECURE = {{ pgadmin_secure_cookies | bool }}
+
+# Apache removes client-supplied proxy headers before setting the public scheme.
+# Only the pip deployment additionally uses Apache as a proxy for client IPs.
+PROXY_X_FOR_COUNT = {{ 1 if pgadmin_install_method == 'pip' else 0 }}
+PROXY_X_PROTO_COUNT = 1
+PROXY_X_HOST_COUNT = 0
+PROXY_X_PORT_COUNT = 0
+PROXY_X_PREFIX_COUNT = 0
+
+{% for key, value in pgadmin_config | dictsort %}
+{{ key }} = json.loads({{ value | to_json | to_json }})
+{% endfor %}

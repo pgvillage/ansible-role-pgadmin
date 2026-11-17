@@ -1,23 +1,95 @@
 ---
+- name: Validate installation and web server settings
+  ansible.builtin.assert:
+    that:
+      - pgadmin_install_method in ['package', 'pip']
+      - _pgadmin_platform | length > 0
+      - pgadmin_server_name is match('^[A-Za-z0-9][A-Za-z0-9.-]*$')
+      - pgadmin_url_path is match('^(/[A-Za-z0-9_-]+)+$')
+      - pgadmin_package_state in ['present', 'latest']
+      - pgadmin_webserver_port | int == (443 if pgadmin_tls_enabled | bool else 80)
+      - pgadmin_gunicorn_port | int > 1024
+      - pgadmin_gunicorn_port | int < 65536
+      - pgadmin_gunicorn_threads | int > 0
+      - pgadmin_gunicorn_timeout | int > 0
+      - pgadmin_config is mapping
+      - pgadmin_config_dir == '/etc/pgadmin'
+    fail_msg: >-
+      Check the pgAdmin installation method, Apache platform defaults, hostname,
+      URL path and ports. This role uses the distribution's standard HTTP/HTTPS listeners.
+    quiet: true
+
+- name: Validate repository package architecture
+  ansible.builtin.assert:
+    that: ansible_facts.architecture in pgadmin_package_architectures
+    fail_msg: >-
+      The upstream pgAdmin APT/RPM packages require x86_64. For a custom package
+      source, override pgadmin_package_architectures and pgadmin_package_names.
+    quiet: true
+  when: pgadmin_install_method == 'package'
+
+- name: Validate additional pgAdmin configuration
+  ansible.builtin.assert:
+    that:
+      - pgadmin_config.keys() | reject('match', '^[A-Z][A-Z0-9_]*$') | list | length == 0
+      - pgadmin_config.keys() | intersect(_pgadmin_managed_settings) | length == 0
+    fail_msg: >-
+      pgadmin_config keys must be uppercase Python setting names. Use the role's
+      variables for server mode, paths, URL mounting and proxy trust settings.
+    quiet: true
+
+- name: Require certificates for HTTPS
+  ansible.builtin.assert:
+    that:
+      - pgadmin_tls_certificate_file | length > 0
+      - pgadmin_tls_key_file | length > 0
+      - pgadmin_webserver_port | int == 443
+    fail_msg: >-
+      Deploy the server certificate and private key first, and set
+      pgadmin_tls_certificate_file and pgadmin_tls_key_file. For an existing TLS
+      reverse proxy, set pgadmin_tls_enabled=false and configure its HTTP backend.
+    quiet: true
+  when: pgadmin_tls_enabled | bool
+
+- name: Check TLS files
+  ansible.builtin.stat:
+    path: "{{ item }}"
+    follow: true
+  loop: "{{ [pgadmin_tls_certificate_file, pgadmin_tls_key_file] }}"
+  register: pgadmin_tls_files
+  when: pgadmin_tls_enabled | bool
+
+- name: Validate TLS files exist
+  ansible.builtin.assert:
+    that: item.stat.isreg | default(false)
+    fail_msg: "Deploy the TLS file {{ item.item }} before running pgAdmin."
+    quiet: true
+  loop: "{{ pgadmin_tls_files.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+  when: pgadmin_tls_enabled | bool
+
+- name: Inspect the pgAdmin configuration database
+  ansible.builtin.command:
+    argv:
+      - "{{ ansible_facts.python.executable }}"
+      - '-'
+      - "{{ pgadmin_data_dir }}/pgadmin4.db"
+    stdin: "{{ lookup('ansible.builtin.file', 'database_state.py') }}"
+  register: pgadmin_database_state
+  changed_when: false
+  check_mode: false
 
 - name: Validate initial pgAdmin administrator credentials
   ansible.builtin.assert:
     that:
+      - pgadmin_admin_email is string
       - pgadmin_admin_email is match('^[^@\s]+@[^@\s]+\.[^@\s]+$')
-      - pgadmin_admin_password | default('') | length >= 8
-    fail_msg: Set pgadmin_admin_email and a Vault-backed pgadmin_admin_password (at least 8 characters).
+      - pgadmin_admin_password is string
+      - pgadmin_admin_password | length >= ([8, pgadmin_config.PASSWORD_LENGTH_MIN | default(8) | int] | max)
+    fail_msg: >-
+      Set pgadmin_admin_email and a Vault-backed pgadmin_admin_password meeting
+      PASSWORD_LENGTH_MIN (at least eight characters).
+    quiet: true
+  when: not (pgadmin_database_state.stdout | from_json).initialized
   no_log: true
-
-- name: Check supported pgAdmin platform
-  ansible.builtin.assert:
-    that:
-      - ansible_distribution in ['RedHat', 'Rocky', 'AlmaLinux']
-      - ansible_distribution_major_version in ['9', '10']
-      - ansible_architecture == 'x86_64'
-    fail_msg: pgAdmin requires RHEL, Rocky Linux or AlmaLinux 9/10 on x86_64.
-
-- name: Enable and start Apache
-  ansible.builtin.service:
-    name: httpd
-    state: started
-    enabled: true
