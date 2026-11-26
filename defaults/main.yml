@@ -44,7 +44,7 @@ pgadmin_package_virtualenv: /usr/pgadmin4/venv
 # Linux must provide a suitable Python with venv/ensurepip on openSUSE.
 pgadmin_python_executable: /usr/bin/python3
 pgadmin_virtualenv: /opt/pgadmin/venv
-pgadmin_pip_version: '9.19'
+pgadmin_pip_version: '9.18'
 pgadmin_gunicorn_requirement: 'gunicorn>=25,<26'
 pgadmin_gunicorn_port: 5050
 pgadmin_gunicorn_threads: 25

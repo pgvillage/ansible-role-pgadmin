@@ -64,7 +64,7 @@
   check_mode: false
   when: not ansible_check_mode
 
-- name: Install the pgAdmin browser assets
+- name: Check the pgAdmin browser assets
   ansible.builtin.import_tasks: pip_frontend.yml
   when: not ansible_check_mode
 
@@ -79,4 +79,4 @@
     follow: false
   when:
     - not ansible_check_mode
-    - pgadmin_install_result is changed or (pgadmin_frontend_repair_result | default({})) is changed
+    - pgadmin_install_result is changed

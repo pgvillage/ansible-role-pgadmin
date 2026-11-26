@@ -5,7 +5,6 @@ _pgadmin_platform: >-
 _pgadmin_platforms:
   RedHat:
     packages: [pgadmin4-web, httpd, acl]
-    rpm_extract_packages: [rpm, cpio]
     selinux_packages: [policycoreutils-python-utils, python3-libselinux, python3-libsemanage]
     user: apache
     group: apache
@@ -14,7 +13,6 @@ _pgadmin_platforms:
     control: /usr/sbin/apachectl
   Ubuntu:
     packages: [pgadmin4-web, apache2, acl]
-    rpm_extract_packages: [rpm2cpio, cpio]
     selinux_packages: [policycoreutils-python-utils, python3-selinux, python3-semanage]
     user: www-data
     group: www-data
@@ -23,7 +21,6 @@ _pgadmin_platforms:
     control: /usr/sbin/apache2ctl
   Suse:
     packages: [apache2, acl]
-    rpm_extract_packages: [rpm, cpio]
     selinux_packages: [policycoreutils-python-utils, python3-selinux, python3-semanage]
     user: wwwrun
     group: www
@@ -31,14 +28,7 @@ _pgadmin_platforms:
     config_file: /etc/apache2/vhosts.d/pgadmin4.conf
     control: /usr/sbin/start_apache2
 
-# The 9.19 Python wheel omits the production frontend. The signed upstream RPM
-# contains it; these hashes pin the packages checked together for this repair.
-_pgadmin_frontend_repair_artifacts:
-  '9.19':
-    wheel_url: https://ftp.postgresql.org/pub/pgadmin/pgadmin4/v9.19/pip/pgadmin4-9.19-py3-none-any.whl
-    wheel_sha256: 8f7a9966a3bc59144d34900c6ec2a9ba71d6d5ac54fe849747f5dafa6df89462
-    rpm_url: https://ftp.postgresql.org/pub/pgadmin/pgadmin4/yum/redhat/rhel-9-x86_64/pgadmin4-server-9.19-1.el9.x86_64.rpm
-    rpm_sha256: cb7bb796b7570940f682b3ac5df9c70ef1a0de41026a46777b2bdbf616e21d9b
+# Frontend bundles a complete pgAdmin wheel contains (the 9.19 wheel has none, upstream #10712).
 _pgadmin_required_frontend_assets:
   - style.css
   - vendor.react.js
