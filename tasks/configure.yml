@@ -1,0 +1,88 @@
+---
+- name: Create the protected configuration directory
+  ansible.builtin.file:
+    path: "{{ pgadmin_config_dir }}"
+    state: directory
+    owner: root
+    group: "{{ pgadmin_webserver_group }}"
+    mode: '0750'
+
+- name: Create private pgAdmin runtime directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ pgadmin_webserver_user }}"
+    group: "{{ pgadmin_webserver_group }}"
+    mode: '0700'
+  loop:
+    - "{{ pgadmin_data_dir }}"
+    - "{{ pgadmin_data_dir }}/sessions"
+    - "{{ pgadmin_data_dir }}/storage"
+    - "{{ pgadmin_data_dir }}/kerberoscache"
+    - "{{ pgadmin_data_dir }}/azurecredentialcache"
+    - "{{ pgadmin_log_dir }}"
+
+- name: Configure pgAdmin server mode
+  ansible.builtin.template:
+    src: config_system.py.j2
+    dest: "{{ pgadmin_config_dir }}/config_system.py"
+    owner: root
+    group: "{{ pgadmin_webserver_group }}"
+    mode: '0640'
+    validate: >-
+      {{ ansible_facts.python.executable }} -c
+      'import ast,sys; ast.parse(open(sys.argv[1]).read())' %s
+  diff: false
+  notify:
+    - Restart pgAdmin application
+    - Restart pgAdmin web server
+
+- name: Detect an active SELinux filesystem
+  ansible.builtin.stat:
+    path: /sys/fs/selinux/enforce
+  register: pgadmin_selinux_mount
+
+- name: Configure SELinux for pgAdmin
+  ansible.builtin.include_tasks: selinux.yml
+  when: pgadmin_selinux_mount.stat.exists
+
+- name: Initialize or upgrade the pgAdmin configuration database
+  become: true
+  become_user: "{{ pgadmin_webserver_user }}"
+  ansible.builtin.command:
+    argv:
+      - "{{ _pgadmin_python }}"
+      - "{{ _pgadmin_application_dir }}/setup.py"
+      - setup-db
+  environment:
+    PGADMIN_SETUP_EMAIL: "{{ pgadmin_admin_email }}"
+    PGADMIN_SETUP_PASSWORD: "{{ pgadmin_admin_password }}"
+    PYTHONPATH: "{{ pgadmin_config_dir }}"
+  changed_when: true
+  when: >-
+    not (pgadmin_database_state.stdout | from_json).initialized
+    or pgadmin_install_result is changed
+  no_log: true
+  notify:
+    - Restart pgAdmin application
+    - Restart pgAdmin web server
+
+- name: Protect the pgAdmin database
+  ansible.builtin.file:
+    path: "{{ pgadmin_data_dir }}/pgadmin4.db"
+    owner: "{{ pgadmin_webserver_user }}"
+    group: "{{ pgadmin_webserver_group }}"
+    mode: '0600'
+
+- name: Configure Apache hosting
+  ansible.builtin.import_tasks: webserver.yml
+
+- name: Configure the Gunicorn systemd service
+  ansible.builtin.template:
+    src: pgadmin.service.j2
+    dest: /etc/systemd/system/pgadmin.service
+    owner: root
+    group: root
+    mode: '0644'
+  when: pgadmin_install_method == 'pip'
+  notify: Restart pgAdmin application

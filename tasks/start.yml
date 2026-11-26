@@ -1,0 +1,22 @@
+---
+- name: Validate Apache configuration before starting services
+  ansible.builtin.command:
+    argv: "{{ _pgadmin_apache_configtest }}"
+  changed_when: false
+
+- name: Enable and start the pgAdmin Gunicorn service
+  ansible.builtin.systemd_service:
+    name: pgadmin.service
+    daemon_reload: true
+    state: started
+    enabled: true
+  when: pgadmin_install_method == 'pip'
+
+- name: Enable and start Apache
+  ansible.builtin.systemd_service:
+    name: "{{ pgadmin_webserver_service }}"
+    state: started
+    enabled: true
+
+- name: Apply configuration changes before checking HTTP
+  ansible.builtin.meta: flush_handlers

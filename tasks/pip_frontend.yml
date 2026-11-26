@@ -1,0 +1,21 @@
+---
+- name: Inspect the installed pgAdmin frontend bundles
+  ansible.builtin.stat:
+    path: "{{ _pgadmin_application_dir }}/pgadmin/static/js/generated/{{ item }}"
+    get_checksum: false
+    get_mime: false
+  loop: "{{ _pgadmin_required_frontend_assets }}"
+  register: pgadmin_frontend_assets
+
+- name: Require a complete pgAdmin Python wheel
+  ansible.builtin.assert:
+    that: >-
+      pgadmin_frontend_assets.results
+      | selectattr('stat.isreg', 'defined') | selectattr('stat.isreg')
+      | selectattr('stat.size', 'gt', 0) | list | length
+      == _pgadmin_required_frontend_assets | length
+    fail_msg: >-
+      The pgAdmin {{ pgadmin_pip_version }} Python wheel is missing its frontend bundles
+      (pgadmin/static/js/generated). The browser would only show a loading page.
+      Set pgadmin_pip_version to a release with a complete wheel (9.19 is broken upstream).
+    quiet: true

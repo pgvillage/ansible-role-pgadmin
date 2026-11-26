@@ -1,0 +1,7 @@
+---
+- name: Install pgAdmin web and Apache
+  ansible.builtin.package:
+    name: "{{ pgadmin_package_names }}"
+    state: "{{ pgadmin_package_state }}"
+  register: pgadmin_install_result
+  notify: Restart pgAdmin web server
